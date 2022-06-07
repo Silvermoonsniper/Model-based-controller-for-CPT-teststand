@@ -1,0 +1,907 @@
+from scipy import stats
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from scipy import signal
+import math
+from sklearn.linear_model import LinearRegression
+import matplotlib.animation as animation
+import scipy.fft
+from scipy.fft import fft, fftfreq, fftshift
+#calculate linear regression coefficient
+def estimate_coef(oldmodelcoef_, oldmodelintercept_,x, y):
+    
+    # number of observations/points
+    n = np.size(x)
+   
+    # mean of x and y vector
+    m_x = np.mean(x)
+    m_y = np.mean(y)
+ 
+    # calculating cross-deviation and deviation about x
+    SS_xy = np.sum(y*x) - n*m_y*m_x
+    SS_xx = np.sum(x*x) - n*m_x*m_x
+ 
+    # calculating regression coefficients
+    b_1 = SS_xy / SS_xx
+    b_0 = m_y - b_1*m_x
+   # print(x[-1],y[-1])
+    # if calculated fitted slope and intercept are nans, we 
+    if math.isnan(b_1) == True:
+      
+        b_1 = oldmodelcoef_
+    if math.isnan(b_0) == True:
+        b_0 = oldmodelintercept_
+    return (b_1, b_0)
+
+
+#plot function to visualize measurement
+def plot_function(xdata, ydata, xlabel, ylabel):
+    
+    plt.plot(xdata, ydata)
+   
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.show()
+
+
+# retrieve raw sensor measurement from indiviudual channel
+def main_data_processing(plot_flag,datapath,data_name):
+    
+# read data from sensor measurement DAT. file
+    raw_measurementdata = pd.read_table(datapath,delimiter='none',engine='python')
+# extract data from channel 'Stellenwertventil' and 'dist_MTS'
+# 'Stellenwertventil': controller digital output
+# 'dist_MTS': digital distance measurement
+    for j in range(len(data_name)):
+        if data_name[j] ==  'Stellwert_Ventil':
+             controller_output = rawdata_separation(raw_measurementdata,j)
+        if data_name[j] ==  'dist_MTS':
+             distance_measurment = rawdata_separation(raw_measurementdata,j)
+        if data_name[j] ==  'Proc2_counter':
+             Proc2_counter = rawdata_separation(raw_measurementdata,j)
+    
+    data = pd.DataFrame(data={'Stellwert_Ventil':controller_output, 'dist_MTS':distance_measurment, 'Proc2_counter':Proc2_counter})
+    #visualize 'Stellenwertventil' versus 'dist_MTS' when plot_flag is set to be 1
+    if plot_flag == 1:
+        plt.scatter(data['Stellwert_Ventil'], data['dist_MTS'])
+   
+        plt.xlabel('Stellwert_Ventil')
+        plt.ylabel('dist_MTS')
+        plt.show()
+    
+    #visualize 'Stellenwertventil' versus 'Proc2_counter'
+        plt.scatter(data['Proc2_counter'],data['dist_MTS'])
+   
+        plt.xlabel('Proc2_counter')
+    
+        plt.ylabel('dist_MTS')
+        plt.show()
+    
+    return data
+
+
+# retrieve raw sensor measurement from indiviudual channel for CPT teststand experiment datasets
+def CPTmain_data_processing(plot_flag,datapath,data_name):
+    
+# read data from sensor measurement DAT. file
+    raw_measurementdata = pd.read_table(datapath,delimiter='none',engine='python')
+   
+# extract data from channel 'Stellenwertventil' and 'dist_MTS'
+# 'Stellenwertventil': controller digital output
+# 'dist_MTS': digital distance measurement
+    for j in range(len(data_name)):
+        if data_name[j] ==  'DistanceRegOut_Digits':
+            controller_output = rawdata_separation(raw_measurementdata,j)
+            
+        if data_name[j] ==  'DistanceInduktiv_mm':
+            distance_measurment = rawdata_separation(raw_measurementdata,j)
+            
+        if data_name[j] ==  'Counter_ticks':
+            Proc2_counter = rawdata_separation(raw_measurementdata,j)
+            
+    data = pd.DataFrame(data={'DistanceRegOut_Digits':controller_output, 'DistanceInduktiv_mm':distance_measurment, 'Counter_ticks':Proc2_counter})
+    #visualize 'Stellenwertventil' versus 'dist_MTS' when plot_flag is set to be 1
+    if plot_flag == 1:
+        plt.scatter(data['DistanceRegOut_Digits'], data['DistanceInduktiv_mm'])
+   
+        plt.xlabel('DistanceRegOut_Digits')
+        plt.ylabel('DistanceInduktiv_mm')
+        plt.show()
+        
+    #visualize 'Stellenwertventil' versus 'Proc2_counter'
+        plt.scatter(data['Counter_ticks'],data['DistanceInduktiv_mm'])
+   
+        plt.xlabel('Counter_ticks')
+    
+        plt.ylabel('DistanceInduktiv_mm')
+        plt.show()
+    
+    return data
+#corrected controller output
+def controller_outputcorrected(modelcoef_, modelintercept_,veocity_data, localtimestep):
+    #correct velocity value at local time step
+    delta_v = velocity_deviationterm(regression_datasize,desired_distanceprofile,predicted_distanceprofile)
+    #corrected controller output
+    newcontrolleroutput = ((delta_v[localtimestep]+veocity_data[localtimestep]) - modelintercept_)/modelcoef_
+    return newcontrolleroutput
+# function to loop over each row of raw data and then transform them into columns
+
+def rawdata_separation(raw_measurementdata,index):
+    sensor_channeloutput = []
+    # name the raw sensor data accoridng to index, 
+    # example : accx,accy, etc.
+    #sensor_channeloutput.append(data_name [index])'\t'
+    
+    firstindex = 0
+    index1 = 0
+    for index1 in range(20):
+        data1 = np.array(raw_measurementdata.iloc[index1])
+        
+        spiltdata1 = data1[0].split(';')
+        
+        if str(spiltdata1[0]) == '-999':
+           
+            firstindex =  index1
+            
+            break
+            
+    
+    # data starts from 5th row
+    for j in range(firstindex,5700):
+        # transform data into array for processing
+        data = np.array(raw_measurementdata.iloc[j])
+        
+        spiltdata = data[0].split(';')
+        
+        # assign each individual data
+        sensor_channeloutput.append(float(spiltdata [index]))
+    
+
+    return sensor_channeloutput
+
+# function to calculate velocity profile from distance measurement profile of MTS distance sensor
+def veocity_profile_calculation(timedelay, datapoints, dist_MTSdata):
+    veocity_profile = []
+    veocity_profilestep = []
+    
+    for j in range(len(dist_MTSdata)):
+        # velocity data at one step is calculated as distance measurement difference between this step and one step before 
+        # , then divide by time difference
+        # we would obtain two velocity with two units
+        # veocity_profile: digit velocity/ second
+        # for the first velocity data
+        if (j+1)*datapoints < len(dist_MTSdata):
+        
+           
+            veocity_profile.append(np.array((dist_MTSdata[(j+1)*datapoints]-dist_MTSdata[j*datapoints])/timedelay))
+            veocity_profilestep.append(np.array(dist_MTSdata[(j+1)*datapoints]-dist_MTSdata[(j)*datapoints]))
+            
+    return veocity_profile,veocity_profilestep
+
+#function to calculate predicted distance at certain time step
+def predicted_distance(controlcycle_time,dist_MTSdata,local_timestep,veocity_data,controlleroutput, modelcoef_, modelintercept_,step_maximumcorrelation):
+    #predicted distance at current time step is done as follows, when we get one new distance sensor measurement, we trace back
+    #to past sensor measurement by L steps, L is number of datapoints which is equal to maximum correlation, then we calculate 
+    # predict distance at current time step as distance data before L points plus the summation of estimated distance difference
+    # for past L points using linear regression model
+    distsum = 0
+    for j in range(step_maximumcorrelation):
+        distsum = distsum + modelintercept_ + modelcoef_*controlcycle_time*controlleroutput[len(controlleroutput)-step_maximumcorrelation+j-1]
+    predicted_distance = dist_MTSdata[len(dist_MTSdata)-step_maximumcorrelation] +distsum
+    return predicted_distance
+#function to obtain predicted distance profile
+
+def predicted_distanceprofile(dist_MTSdata,veocity_data,datapoints):
+    
+    
+    #array for predicted distance
+    predicted_distancearray = []
+    predicted_distanceval = 0
+    #loop over all time steps
+    for j in range(len(veocity_data)):
+
+        predicted_distanceval = predicted_distance(dist_MTSdata,j,veocity_data,datapoints)
+        predicted_distancearray.append(predicted_distanceval)
+    return predicted_distancearray
+
+# function to calculate desired distance at local time step
+
+def desired_distance(vibration_frequency, vibration_amplitude, phase_delay, distance_data,localtimestep,control_startstep, datapoints,samplingfreq):
+     
+        desired_distanceprofile = []
+        
+        #desired distance data at each control step
+        #local time point
+        local_pointpre = control_startstep
+        local_pointcur = localtimestep-1
+        #penetration velocity (mm)
+        penetration_vel = 20
+        #digital value
+        penetrationvel_dig = penetration_vel
+        #physical movement between previous step and current step
+        sinemove = vibration_amplitude*(np.sin(2*np.pi*vibration_frequency*datapoints*local_pointcur*(1/samplingfreq) + phase_delay)-np.sin(2*np.pi*vibration_frequency*datapoints*local_pointpre*(1/samplingfreq) + phase_delay))
+        #transform into digital value
+        sinemove_digital = sinemove*np.array(65536/500)
+        
+        desired_distance = distance_data[control_startstep-1] + sinemove_digital
+        #+ penetrationvel_dig*(local_pointcur-control_startstep)       # desired_distanceprofile.append(desired_distance)
+        
+        return desired_distance
+#calculate velocity deviation term
+# for one time step defined as Processdelay t_p in Adwin system, it is equivalent as int(t_p/c_p) clock cycles,
+# this is used to compensate time lag effect between sensor measurement acquisition and controller output generation 
+# Input args:
+
+#  datapoints_velocity: datapoints to calculate velocity deviation
+#  desired_distanceprofile : desired distance
+#  predicted_distanceprofile: predict distance
+
+# output args:
+
+#   delta_v:velocity deviation term
+def velocity_deviationterm(datapoints_velocity,desired_distanceprofile,predicted_distanceprofile):
+    #velocity error term
+    delta_v = (desired_distanceprofile - predicted_distanceprofile) / datapoints_velocity
+    return delta_v
+
+
+#perform linear regression on local velocity and controller output data.
+def linear_regressioncalc(oldmodelcoef_, oldmodelintercept_,veocity_data, controlleroutput, local_timestep, regression_datasize):
+    
+                       
+   
+    #check if length of data for regression exceeds the length of current velocity and controller output dataset
+    current_lendataset = np.min([len(veocity_data),len(controlleroutput)])
+    if current_lendataset < regression_datasize:
+        regression_datasize = current_lendataset -10
+     #lcoal velocity and controller output data
+    localcontroller_data = np.array(controlleroutput[len(controlleroutput) - regression_datasize::])
+    local_velocitydata = np.array(veocity_data[len(veocity_data) - regression_datasize::])        
+    
+    #perform local linear regression
+    modelcoef_, modelintercept_ = estimate_coef(oldmodelcoef_, oldmodelintercept_,localcontroller_data,
+                                                local_velocitydata)
+    
+    
+
+    if local_timestep == 700: 
+        #visualize local linear regression
+            x = localcontroller_data
+            
+            fitted_vel = modelcoef_*x + modelintercept_
+            plt.scatter(x, local_velocitydata)
+    
+            plt.plot(x, fitted_vel,color='green')
+            plt.legend(['regression line','data'])
+            plt.title('local linear regression')
+            plt.xlabel('Stellwert_Ventil')
+            plt.ylabel('Digital velocity')
+            plt.show()  
+    
+    # return slope and intercept after linear regression
+    return modelcoef_, modelintercept_
+
+
+
+
+#perform linear regression on local velocity and controller output data.
+def locallinear_regressioncalc(veocity_data, local_slice,regression_datasize):
+    
+                       
+   
+   
+     #lcoal velocity data
+    local_velocitydata= np.array(veocity_data[len(veocity_data) - regression_datasize::])
+         
+    
+    #perform local linear regression
+    modelcoef_, modelintercept_ = estimate_coef(local_slice,
+                                                local_velocitydata)
+
+    return modelcoef_, modelintercept_
+
+#function to transform digital distance into real distance data
+def real_distancedatacalc(position_upperlimit, position_lowerlimit, digital_distancedata):
+    
+    #calculate analog distance data
+    real_distancedata = digital_distancedata
+    # this part needs to be discussed with stefan, not sure how exactly transform digital distance measurement 
+    # from sensor into real distance value
+    
+    
+    real_distancedata = np.array(((-0.501+0.356)/(411580-413035)))*(np.array(digital_distancedata)-413075) - 0.356
+    
+    return real_distancedata
+# function to transform controller output(analog voltage into real voltage)
+# Adwin system has voltage level between -10v and 10v
+def real_voltage_calculation(stellewert):
+  
+
+    real_volatge = ((stellewert-32768)/(65535-32768)) * 10
+        
+    return real_volatge
+
+
+#function to calculate desired velocity data
+# first derivative of desired distance function
+def desired_velocity_calcul(vibration_frequency, vibration_amplitude, phase_delay, veocity_data, datapoints,samplingfreq):
+     
+        desired_velocityprofile = []
+        for j in range(len(veocity_data)):
+            #desired distance data at each control step
+            desired_velocity = vibration_amplitude*2*np.pi*vibration_frequency*np.cos(2*np.pi*vibration_frequency*j*datapoints*(1/samplingfreq) + phase_delay)
+            desired_velocityprofile.append(desired_velocity)
+        return desired_velocityprofile
+    
+    
+#butterworth filter to denoise measured distance signal
+def butterworth_filter(filterorder, critical_freq, vibration_frequency, real_distancedata, samplingfreq):
+    #apply butterworth filter, remove tones at 10 Hz
+    sos = signal.butter(filterorder, vibration_frequency, 'hp', fs=samplingfreq, output='sos')
+    #obtain filtered signal
+    filtered = signal.sosfilt(sos, real_distancedata)
+   
+    return filtered
+#plot filtered signal 
+def filtered_signal_visulization(samplingfreq,filtered,real_distancedata):
+    t = (1/samplingfreq)*np.linspace(0, 1,len(filtered), False)  # 1 second
+    plt.plot(t[1::], filtered[1::],color = 'r')
+    #plot raw noisy data
+    plt.scatter(t[1::], real_distancedata[1::])
+    plt.legend(['filtered signal','raw signal'])
+    plt.title('raw velocity signal and filtered velocity signal ')
+    
+    plt.xlabel('Time [seconds]')
+    plt.tight_layout()
+    plt.show()
+    
+    
+#average filter for denoising
+# input args:
+#       averagesize: size for average window
+#       real_distancedata: real distance data 
+
+
+# output args:
+#      denoise_distancedata: distance data after denoising
+def average_filter(averagesize,real_distancedata):
+    denoise_distancedata = np.ones(len(real_distancedata))
+    for j in range(len(real_distancedata)):
+        if j-averagesize >= 0:
+            denoise_distancedata[j] = (np.sum(real_distancedata[j-averagesize:j]))/averagesize
+            
+        else:
+            denoise_distancedata[j] = (np.sum(real_distancedata[0:averagesize]))/averagesize
+    return denoise_distancedata       
+
+#function to obatin optimal linear model parameters from normal equation
+# input args:
+#       controlleroutput_data: controller output data
+#       piston_movdata: piston movement data
+#       regularization_coff: regularization parameter to avoid numerical instability
+
+def normal_eqsolvpar(controlleroutput_data,piston_movdata,regularization_coff,controlcycle_time):
+    #initialie model parameter vector
+    m_vector = np.ones(len(controlleroutput_data))
+    #plot data
+    
+    for j in range(len(controlleroutput_data)):
+   
+        m_vector[j] = (piston_movdata[j]*controlleroutput_data[j])/(controlcycle_time*(regularization_coff +controlleroutput_data[j]**2) )
+        
+   #if piston_mov != 0:
+    return m_vector   
+
+#function to obtain traning dataset():
+# input args:
+#     tranning_samplenumber: sample number for trainning stage
+#     sample_size: data size for training
+#     controlleroutput_data: controller data
+#     piston_movdata: piston movement data
+# output args:
+#     trainning_dataset: traning data set for controller output
+#     piston_movdatatranning: traning data set for piston movement
+def traning_controllerdataset(tranning_samplenumber,sample_size,controlleroutput_data,piston_movdata):
+    trainning_dataset = []
+    piston_movdatatranning = []
+    for j in range(tranning_samplenumber):
+        trainning_dataset.append(np.array(controlleroutput_data[j:j+sample_size]))
+        piston_movdatatranning.append(np.array(piston_movdata[j:j+sample_size]))
+    return trainning_dataset,piston_movdatatranning    
+    
+
+    
+#function to get optimum parameters with respect to all traning datasets
+# input args:
+#     trainning_dataset: dataset for controller output
+#     piston_movdatatranning: piston movement dataset
+#     regularization_coff: parameter to avoid numerical instability
+#     controlcycle_time: control cycle.
+# output args:
+#     optimal_m: optimal parameters
+def optimal_paravec(trainning_dataset,piston_movdatatranning,regularization_coff,controlcycle_time):
+    residual_array = np.zeros(len(trainning_dataset))
+    m_vectorarray = []
+    for j in range(len(trainning_dataset)):
+        #get optimal parameters with normal equation
+        m_vector = normal_eqsolvpar(trainning_dataset[j],piston_movdatatranning[j],regularization_coff,controlcycle_time)
+        #print('model m:',m_vector)
+        m_vectorarray.append(m_vector)
+        #calculate mean loss with respect all datasets.
+        r = 0
+        for i in range(len(trainning_dataset)):
+            #calculate residual norm
+            r = r + np.linalg.norm(np.matmul(np.diag(trainning_dataset[i]),m_vector)-piston_movdatatranning[i])/ len(trainning_dataset)
+               
+        residual_array[j] = r
+    
+    #search for minimum
+    b = 0
+    for j in residual_array:
+        
+        if np.array(j) == np.min(residual_array):
+            
+            optimal_m = m_vectorarray[b]
+        b+=1
+   
+    return optimal_m        
+    
+def model_based_controller(oldmodelcoef_, oldmodelintercept_,piston_mov_digital,controlcycle_time, denoise_mode,rawdistance_data,datapoints_velocity,distance_data, controlleroutput_data,localtimestep,control_startstep,
+                           datapoints,vibration_frequency, vibration_amplitude, phase_delay,samplingfreq):
+    
+    
+    
+    #transform into velocity data
+  
+   # veocity_profile,veocity_profilestep = veocity_profile_calculation(timedelay, datapoints, distance_data)
+   
+    #denoising velocity data
+    if denoise_mode == 'butterworth':
+        
+        filtersignal = butterworth_filter(filterorder, critical_freq, vibration_frequency, piston_mov_digital, samplingfreq)
+    
+    elif denoise_mode == 'average':
+    
+        filtersignal = average_filter(averagesize,piston_mov_digital)
+       #denoising for distance data
+        filterdistance = average_filter(averagesize,distance_data)
+    
+    #perform correlation for existing data
+    windowsize = datapoints_velocity
+
+    #time_step,coff_array,step_maximumcorrelation = pearsoncorrelation_curve(windowsize, filtersignal[len(controlleroutput_data)-datapoints_velocity::], controlleroutput_data[len(controlleroutput_data)-datapoints_velocity::])
+    
+    step_maximumcorrelation = 65
+    #controller data should be multiplied with control cycle time
+    newcontrolleroutput_data = controlleroutput_data*controlcycle_time
+  
+    modelcoef_, modelintercept_ = linear_regressioncalc(oldmodelcoef_, oldmodelintercept_,filtersignal, newcontrolleroutput_data, localtimestep, int(step_maximumcorrelation))
+    
+   
+   
+    
+      
+    
+    #plot correlation curve at one step
+    if localtimestep == control_startstep:
+        
+        #plot filtered signal and velocity data
+        filtered_signal_visulization(samplingfreq,filtersignal,piston_mov_digital)
+    
+    
+    
+    
+    #calculate predict distance, this is equal to measured distance plus velocity at previous step
+    predicted_distancelocal = predicted_distance(controlcycle_time,filterdistance,localtimestep,filtersignal,controlleroutput_data, modelcoef_, modelintercept_,step_maximumcorrelation)
+    
+    #calculate desired distance at current step
+    desired_distancelocal = desired_distance(vibration_frequency, vibration_amplitude, phase_delay, distance_data,localtimestep,control_startstep, datapoints,samplingfreq)   
+    
+    #calculate velocity deviation
+    delta_s = desired_distancelocal - predicted_distancelocal
+    vel_delta = delta_s / datapoints_velocity
+  
+  
+    
+    #calculate controller output
+    
+    controlleroutput = ((vel_delta + filtersignal[len(filtersignal)-1] - modelintercept_)/modelcoef_)/controlcycle_time
+        
+    #limit controller output range
+    if (controlleroutput > 40000):
+        controlleroutput = 40000
+    if (controlleroutput < -40000):
+        controlleroutput = -40000
+     #check if controller output is NAN
+   # if math.isnan(controlleroutput) == True:
+    #    controlleroutput = controlleroutput_data[len(controlleroutput_data)-2]
+    return predicted_distancelocal,desired_distancelocal,filtersignal,controlleroutput, modelcoef_, modelintercept_,step_maximumcorrelation
+
+    
+#function to plot real distance measurement
+#input args:
+#         timeline: time step for plotting,     exmaple:data2['Proc2_counter']
+#         real_distancedata: analof distance data
+def distance_plot(timeline,real_distancedata):
+    #visualize measured distance profile
+   
+    plt.plot(timeline,real_distancedata)
+    plt.legend(['measured distance'])
+    plt.xlabel('Proc2_counter')
+    plt.ylabel('distance (mm)')
+    plt.show()
+
+#function to plot distance spectrum
+def spectrum_plot(real_distancedata):
+    # calculate spectrum of measured distance signal
+    distance_spectrum = scipy.fft.fft(real_distancedata)
+    
+    
+    #convert into freq
+   
+    freq = fftfreq(len(real_distancedata),1/samplingfreq)[:len(real_distancedata)//20]
+   
+    #plot distance data spectrum
+    plt.plot(freq, distance_spectrum.real[0:len(real_distancedata)//20])
+    plt.title('spectrum of distance data')
+    plt.xlabel('frequency (Hz)')
+    plt.show()
+    
+## need to find an experiement formula that convert controller output to piston movement with this controller output at one control cycle time,
+## in real system , always containing sensor noise, ambient noise,                             
+## then distance at next step would be measured distance at this step plus distance change
+def controlleroutput_to_distance_converter(controlleroutput, controlcycle_time):
+    #get analog output voltage
+    output_volt = real_voltage_calculation(controlleroutput)
+  
+    #calculate pushing force, simplify as linearly proportional to output voltage 
+    cp = 0.56
+    pushing_f = cp*output_volt+12
+    #calculate piston movement for one control cycle
+    
+    piston_mov = np.array(0.04)*pushing_f +1e-5*distance_adc(np.random.normal(0,noise_std,1))
+    return piston_mov
+
+#function for AD conversion of distance data
+def distance_adc(piston_mov):
+    #digital value of distance 
+    piston_mov_digital = (piston_mov)*np.array(65536/500)
+    return piston_mov_digital
+
+
+#function to simulate model-based controller continuously
+#input args:
+#         noise_std:noise standard deviation for noisy distance sensor measurement
+#         tranning_samplenumber: sample number for traning stage
+#         sample_size: data size of sensor measurement for trainning
+#         denoise_mode: mode for denoising method 
+#         simulation_timestep: time step for simulation
+#         datapoints_velocity: number of data points for calculate velocity deviation
+#         rawcontrol_data: raw controller output data
+#         rawdistance_data: raw distance sensor data
+#         datapoints: default to be 1
+#         vibration_frequency: vibration frequency of desired sine movement trajectory of piston
+#         vibration_amplitude: vibration amplitude of desired sine movement trajectory of piston
+#         phase_delay: hase delay of desired sine movement trajectory of piston
+#         samplingfreq: sampling frequency of distance sensor
+
+
+
+def model_basedcontroller_simulator(data1,noise_std,tranning_samplenumber, sample_size, denoise_mode,simulation_timestep,datapoints_velocity,rawcontrol_data,rawdistance_data, datapoints,vibration_frequency, vibration_amplitude, phase_delay,samplingfreq):
+    # array for controller output at all time steps   rawcontrol_data[0]            
+    controlleroutput = np.zeros(simulation_timestep)  
+   # controlleroutput[0] = 33333
+    controlleroutput[0] = rawcontrol_data[0]
+    #initial distance sensor measurement
+    distance_data = np.zeros(simulation_timestep) 
+    distance_data[0] = rawdistance_data[0]
+   # distance_data[0] = 33333
+    #predict distance array and desired distance array
+    predicted_distancelocalarray = np.zeros(simulation_timestep)
+    desired_distancelocalarray = np.zeros(simulation_timestep)
+    #velocity data
+    piston_mov_digital = np.zeros(simulation_timestep)  
+    piston_mov_digital[0] = 0
+    #control cycle time is same as sampling interval
+    controlcycle_time = (1/samplingfreq)
+    #calculate start step of controller
+    control_startstep = tranning_samplenumber + sample_size
+    estimated_delta_d = np.zeros(simulation_timestep)
+    estimated_delta_d[0] = data1['DistanceInduktiv_mm'][0]
+    #initialize the bias term
+    bias = np.zeros(simulation_timestep)
+    var = np.zeros(simulation_timestep)
+    check_flag = 1
+    #initial linear regression para
+    oldmodelcoef_, oldmodelintercept_ = 0,0
+    add_controloutput = 0
+    #check with real experiment dataset
+    if check_flag == 1:
+        for j in range(simulation_timestep-1): 
+            #perform local model-based control 
+            #each step, we get controller output and distance sensor measurement, then update for next step
+            # attention : only use partial distance and controller output data, 
+            # first stage, collect piston movement dataset and controller data set for traning 
+            
+            
+            if j < control_startstep:
+                
+                piston_mov = np.array(rawdistance_data[j+1])- np.array(rawdistance_data[j])
+                
+                piston_mov_digital[j] = piston_mov
+            
+                distance_data[j+1] = rawdistance_data[j+1]
+                
+                #print('velocity',piston_mov_digital[j+1])
+                #check if we start to control
+                # if not controller output is set to be 0v-analaog voltage for safety
+                controlleroutput[j+1]  = rawcontrol_data[j+1]
+               
+    
+            else:
+            
+            # second stage, tranning stage to find optimal model parameter vector
+            # spilt to get training dataset
+                k = 1
+                if j == control_startstep: 
+                    trainning_dataset,piston_movdatatranning = traning_controllerdataset(tranning_samplenumber,sample_size,controlleroutput,piston_mov_digital)
+            # solve for optimal parameters  
+                    optimal_m = optimal_paravec(trainning_dataset,piston_movdatatranning,regularization_coff,controlcycle_time)
+                    originalterm = 0
+                    
+                    for i in range(1,simulation_timestep-1):
+                        #calcualte the bias term at last time step
+                        bias[i-1] = estimated_delta_d[i-1]-data1['DistanceInduktiv_mm'][i-1]
+                        #calculate additional controller output term
+                        if i>2:
+                            if optimal_m[k-1] != 0: 
+                                add_controloutput = bias[i-1]/(controlcycle_time*optimal_m[k-1])
+                        #limit controller output range
+                        if (add_controloutput > 70000):
+                            add_controloutput = 70000
+                        if (add_controloutput < -70000):
+                            add_controloutput = -70000
+                        
+                      #calculate estimated distance for current time step, we need to subtract the bias at last time step, otherwise bias term
+                    # is accumulating
+                        estimated_delta_d[i]  = estimated_delta_d[i-1] + controlcycle_time*optimal_m[k-1]*(data1['DistanceRegOut_Digits'][i-1]-add_controloutput  )
+                      # cyclic using global optimal parameters  
+                        k+=1
+                        if k > len(optimal_m):
+                            k=1
+                    #replace by mean over past data
+                    #    estimated_delta_d[i] = np.mean(estimated_delta_d[0:i])
+                    
+                        #calculate variance of bias
+                        var[i] = np.mean(bias[0:i])
+                    #polynomial regression for bias
+                   
+                    timedata = np.arange(simulation_timestep-2)
+                    
+                    
+                    plt.plot(timedata[1:simulation_timestep-2],estimated_delta_d[1:simulation_timestep-2],color ='r')
+                   
+                    plt.plot(timedata[1:simulation_timestep-2],data1['DistanceInduktiv_mm'][1:simulation_timestep-2])
+                    plt.xlabel('time step')
+                    plt.ylabel('distance (mm)')
+                    plt.legend(['estimated distance','real distance'])
+                    plt.show()
+                    #calculate error 
+                      
+                    plt.plot(timedata[1:sample_size],bias[1:sample_size])
+                   # plt.plot(timedata[1:sample_size],var[1:sample_size])
+                    plt.xlabel('time step')
+                    plt.ylabel('bias')
+                    plt.legend(['distance estimation bias', 'bias variance'])
+                    plt.show()
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    for j in range(simulation_timestep-1): 
+            #perform local model-based control 
+            #each step, we get controller output and distance sensor measurement, then update for next step
+            # attention : only use partial distance and controller output data, 
+            # first stage, collect piston movement dataset and controller data set for traning 
+            
+             
+            if j < control_startstep:
+                piston_mov = controlleroutput_to_distance_converter(controlleroutput[j], controlcycle_time)
+                #transform By ADC
+                piston_mov_digital[j] = distance_adc(piston_mov)
+                
+                distance_data[j+1] = distance_data[j] + piston_mov_digital[j] + distance_adc(np.random.normal(0,noise_std,1))
+                
+                
+                #check if we start to control
+                # if not controller output is set to be 0v-analaog voltage for safety
+                controlleroutput[j+1]  = controlleroutput[j] + 4
+                #controlleroutput[j+1]  = 10*np.sin(j*3)
+    
+            else:
+            
+            
+            # second stage, tranning stage to find optimal model parameter vector
+            # spilt to get training dataset
+                if j == control_startstep: 
+                    trainning_dataset,piston_movdatatranning = traning_controllerdataset(tranning_samplenumber,sample_size,controlleroutput,piston_mov_digital)
+            # solve for optimal parameters  
+                    optimal_m = optimal_paravec(trainning_dataset,piston_movdatatranning,regularization_coff,controlcycle_time)
+                #calculate desired distance at next step
+                desired_distancelocal = desired_distance(vibration_frequency, vibration_amplitude, phase_delay, distance_data,j,control_startstep, datapoints,samplingfreq)   
+                #calculate desired piston movement
+                desired_pistonmov = desired_distancelocal - distance_data[j] 
+            #calculate controller output for next step
+                controlleroutputval = (desired_pistonmov/(optimal_m[-1]*controlcycle_time))
+                #limit controller output range
+                if (controlleroutputval > 70000):
+                     controlleroutputval = 70000
+                if (controlleroutputval < -70000):
+                     controlleroutputval = -70000
+                
+                predicted_distancelocal,desired_distancelocal,filtersignal,controlleroutputval, modelcoef_, modelintercept_,step_maximumcorrelation = model_based_controller(oldmodelcoef_, oldmodelintercept_,piston_mov_digital[0:j],controlcycle_time, denoise_mode,rawdistance_data,datapoints_velocity,distance_data[0:j], controlleroutput[0:j], j,control_startstep,datapoints,vibration_frequency, vibration_amplitude, phase_delay,samplingfreq)
+                #store fitted parameters from linear regression
+              #  oldmodelcoef_, oldmodelintercept_  =  modelcoef_, modelintercept_ 
+                #plot controller output versus velocity data
+                if j == simulation_timestep -2 :
+                    plt.plot(controlleroutput[1:j],piston_mov_digital[1:j])
+                 
+                    plt.xlabel('controller output')
+                    plt.ylabel('velocity')
+                    plt.legend(['velocity data'])
+                    plt.show()
+            
+              # predicted_distancelocalarray[j+1] = predicted_distancelocal
+                desired_distancelocalarray[j+1] = desired_distancelocal
+              
+            #obtain physical piston movement at current step  
+                piston_mov = controlleroutput_to_distance_converter(controlleroutputval, controlcycle_time)
+            #transform By ADC
+                piston_mov_digital[j] = distance_adc(piston_mov)
+            #update sensor measurement
+            #plus AWGN with consideration of thermal noise and etc+ piston_mov
+            
+                distance_data[j+1] = distance_data[j] + piston_mov_digital[j] +  1e-1*distance_adc(np.random.normal(0,noise_std,1))
+               
+            #append for controller data
+                 
+                controlleroutput[j+1] = controlleroutputval
+            
+                 #plot distance profile
+            #time step
+    timedata = np.arange(j+1)
+    
+    plt.plot(timedata[control_startstep+1:j+1], distance_data[control_startstep+1:j+1] )
+
+              
+        
+    plt.plot(timedata[control_startstep+1:j+1], desired_distancelocalarray[control_startstep+1:j+1] )
+   # plt.plot(timedata[control_startstep+1:j+1], predicted_distancelocalarray[control_startstep+1:j+1] )
+    plt.legend(['real','desired','predicted'])
+    plt.title('real and desired piston position')
+    plt.xlabel('time step')
+    plt.show()
+    plt.plot(timedata[control_startstep+1:j], piston_mov_digital[control_startstep+1:j])
+    plt.title('Digital piston movement')
+    plt.xlabel('time step')
+    plt.show()
+    #transform into analog distance data (unit:mm)
+    
+  #  real_distancedata = real_distancedatacalc(position_upperlimit, position_lowerlimit, distance_data)
+    
+    return controlleroutput,distance_data
+         
+                            
+def velocity_variation(velocity_data):
+    newvelocity_data = []
+    for j in range(len(velocity_data)-1):
+        newvelocity_data.append(velocity_data[j+1]- velocity_data[j])
+    return newvelocity_data                        
+if __name__ == '__main__':
+    # data column name for datasets from vibro CPTU , Adwin ProII system
+    data_name = ['sequence_No','acc_x','acc_y','acc_z','gyro_x','gyro_y','gyro_z','adc_1','adc_2','adc_3','adc_4','checksum','dist_MTS','SysTimeStamp',
+             'SystemStatus','Stellwert_Ventil','SollWeg','Proc2_counter']
+    #data column name for CPT teststand experiment
+    newdataname = ['SecondsLabview_ms','Counter_ticks','Force_N','DistanceInduktiv_mm','PorePressRegOut_Digits','SidePressRegOut_Digits','AxialPressRegOut_Digits','LVDT1_mm','LVDT2_mm','LVDT3_mm','PorePressure_kPa','SidePressure_kPa','AxialPressure_kPa',
+               'PoreVolume_ml','SideVolume_ml','AxialVolume_ml','SollPore_Digits','SollSide_Digits','SollAxial_Digits','LVDTMAX_mm',
+'SideAddtion_kPA','DistanceRegOut_Digits','ConeTipResistance','ConePorePressure_Digits','ValveIS_Digits','DistanceRegDelta_Digits','unnamed']
+
+
+   # datapath1 = r'C:\Users\zchen\Downloads\vibrotest_zhengyu20220511\15Hz_30mm\data (108).dat' # file path of raw measurement from VCPTU test
+    
+    datapath1 =  r'C:\Users\zchen\Downloads\12_10_21_12_10_f2_5hzv5mms.csv'
+    datapath2 = r'C:\Users\zchen\Downloads\12_10_21_12_08_f5hzv10mms.csv'
+   # datapath2 = r'C:\Users\zchen\Downloads\vibrotest_zhengyu20220511\15Hz_5mm\data (102).dat'  # file path of raw measurement from VCPTU test
+    datapath3 = r'C:\Users\zchen\Downloads\vibrotest_zhengyu20220511\15Hz_10mm\data (103).dat' # file path of raw measurement from VCPTU test
+    #experiment datapath
+    
+    expereimentdatapath2 = r'C:\Users\zchen\Downloads\vibrotest_zhengyu20220511\15Hz_5mm\220511_1120_vcptudata_7.vcptu' 
+    
+    clockcycle_adwinProII = 1e-9  # time for one clock cycle of Adwin ProII system, T12 processor 1ns  
+    
+    vibration_frequency = 15   #vibration frequency of vibratory piston, unit:Hz
+    
+    vibration_amplitude = 15   #vibration amplitude
+    
+    timedelay = 3.5E-3  #time delay for phase delay
+    
+    phase_delay = timedelay*2*np.pi*vibration_frequency
+    
+    samplingfreq = 5000  #sampling frequency of distance sensor, unit:Hz  
+    
+    position_upperlimit = 1.255   #upper limit of distance sensor, mm
+    
+    position_lowerlimit = 670.247    #lower limit of distance sensor, mm
+    
+    regression_datasize = 40  # initial number of datapoints used for regression 
+    
+    datapoints_velocity = 200 # number of datapoints to calculate velocity deviation
+    
+    regression_coff = [-0.0312312,24.672] #initial setting of linear regression coefficient 
+    
+    time_delay = 30  #initial time delay for controller model.
+    
+    regularization_coff = 0   #regularization coefficient for normal equation solution
+    
+    filterorder = 3   #order of butterworth filter
+    
+    critical_freq = 5  #critical frequency of butterworth filter
+    
+    averagesize = 10  # size of average window for denoising
+    
+    denoise_mode = 'average' #switch between buttterworth filter and average filter for denoising
+    
+    simulation_timestep = 5500   # simulation steps for model-based controller
+    
+    tranning_samplenumber = 800 # traning number samples
+    
+    sample_size = 200  # data size for one data sample
+    
+    noise_std = 1  # noise standard deviation for distance data
+    
+    # flag to choose if we want to plot distance data
+    plot_flag = 0
+    
+    # flag to choose if we want to plot velocity data
+    plot_vel_flag = 0
+    
+    
+    # Processdelay for each dataset (unit:s)
+    Processdelay1 = 1/5000
+    Processdelay2 = 1/5000
+    Processdelay3 = 1/5000
+    
+    #number of datapoints for model-based control step
+    datapoints1 = 1
+    datapoints2 = 1
+    datapoints3 = 1
+    
+    #time delay 
+    timedelay1 = Processdelay1*datapoints1
+    timedelay2 = Processdelay2*datapoints2
+    timedelay3 = Processdelay3*datapoints3
+    
+    #obtain datasets and visualize based on our demand
+    data1 = CPTmain_data_processing(plot_flag,datapath1,newdataname)
+    data2 = CPTmain_data_processing(plot_flag,datapath2,newdataname)
+   
+
+    
+    #start the controller
+    controlleroutput_array, distance_data = model_basedcontroller_simulator(data1,noise_std,tranning_samplenumber, sample_size,denoise_mode,simulation_timestep,datapoints_velocity,data2['DistanceRegOut_Digits'],data2['DistanceInduktiv_mm'], datapoints1,vibration_frequency, vibration_amplitude, phase_delay,samplingfreq)
+    
+   
+    
+    #visualize velocity profile based on plot_vel_flag
+  
+    if plot_vel_flag == 1:
+        plot_function(data1['Proc2_counter'][1:len(veocity_profilestep2)],data1['dist_MTS'][1::], 'Proc2_counter', 'Velocity')
+        
+     
+    
