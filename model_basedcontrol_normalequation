@@ -1,3 +1,6 @@
+#load test data from experiment 
+
+# experiement date: 2022-05-03, 
 from scipy import stats
 import numpy as np
 import pandas as pd
@@ -46,7 +49,7 @@ def plot_function(xdata, ydata, xlabel, ylabel):
 
 
 # retrieve raw sensor measurement from indiviudual channel
-def main_data_processing(plot_flag,datapath,data_name):
+def main_data_processing(plot_flag,datapath,data_name,datanumber):
     
 # read data from sensor measurement DAT. file
     raw_measurementdata = pd.read_table(datapath,delimiter='none',engine='python')
@@ -55,11 +58,11 @@ def main_data_processing(plot_flag,datapath,data_name):
 # 'dist_MTS': digital distance measurement
     for j in range(len(data_name)):
         if data_name[j] ==  'Stellwert_Ventil':
-             controller_output = rawdata_separation(raw_measurementdata,j)
+             controller_output = rawdata_separation(raw_measurementdata,j,datanumber)
         if data_name[j] ==  'dist_MTS':
-             distance_measurment = rawdata_separation(raw_measurementdata,j)
+             distance_measurment = rawdata_separation(raw_measurementdata,j,datanumber)
         if data_name[j] ==  'Proc2_counter':
-             Proc2_counter = rawdata_separation(raw_measurementdata,j)
+             Proc2_counter = rawdata_separation(raw_measurementdata,j,datanumber)
     
     data = pd.DataFrame(data={'Stellwert_Ventil':controller_output, 'dist_MTS':distance_measurment, 'Proc2_counter':Proc2_counter})
     #visualize 'Stellenwertventil' versus 'dist_MTS' when plot_flag is set to be 1
@@ -82,7 +85,7 @@ def main_data_processing(plot_flag,datapath,data_name):
 
 
 # retrieve raw sensor measurement from indiviudual channel for CPT teststand experiment datasets
-def CPTmain_data_processing(plot_flag,datapath,data_name):
+def CPTmain_data_processing(plot_flag,datapath,data_name,datanumber):
     
 # read data from sensor measurement DAT. file
     raw_measurementdata = pd.read_table(datapath,delimiter='none',engine='python')
@@ -92,13 +95,13 @@ def CPTmain_data_processing(plot_flag,datapath,data_name):
 # 'dist_MTS': digital distance measurement
     for j in range(len(data_name)):
         if data_name[j] ==  'DistanceRegOut_Digits':
-            controller_output = rawdata_separation(raw_measurementdata,j)
+            controller_output = rawdata_separation(raw_measurementdata,j,datanumber)
             
         if data_name[j] ==  'DistanceInduktiv_mm':
-            distance_measurment = rawdata_separation(raw_measurementdata,j)
+            distance_measurment = rawdata_separation(raw_measurementdata,j,datanumber)
             
         if data_name[j] ==  'Counter_ticks':
-            Proc2_counter = rawdata_separation(raw_measurementdata,j)
+            Proc2_counter = rawdata_separation(raw_measurementdata,j,datanumber)
             
     data = pd.DataFrame(data={'DistanceRegOut_Digits':controller_output, 'DistanceInduktiv_mm':distance_measurment, 'Counter_ticks':Proc2_counter})
     #visualize 'Stellenwertventil' versus 'dist_MTS' when plot_flag is set to be 1
@@ -127,7 +130,7 @@ def controller_outputcorrected(modelcoef_, modelintercept_,veocity_data, localti
     return newcontrolleroutput
 # function to loop over each row of raw data and then transform them into columns
 
-def rawdata_separation(raw_measurementdata,index):
+def rawdata_separation(raw_measurementdata,index,datanumber):
     sensor_channeloutput = []
     # name the raw sensor data accoridng to index, 
     # example : accx,accy, etc.
@@ -148,7 +151,7 @@ def rawdata_separation(raw_measurementdata,index):
             
     
     # data starts from 5th row
-    for j in range(firstindex,5700):
+    for j in range(firstindex,datanumber):
         # transform data into array for processing
         data = np.array(raw_measurementdata.iloc[j])
         
@@ -228,6 +231,22 @@ def desired_distance(vibration_frequency, vibration_amplitude, phase_delay, dist
         #+ penetrationvel_dig*(local_pointcur-control_startstep)       # desired_distanceprofile.append(desired_distance)
         
         return desired_distance
+
+
+#generate video for linear regression result
+def generate_video(j,fitted_velarray,xarray,regression_datasize):  
+    # Enable interactive plot
+   # %matplotlib notebook
+    # First set up the figure, the axis, and the plot element we want to animate
+    fig = plt.figure()
+    ax = plt.axes(xlim=(0, 2), ylim=(-2, 2))
+    line, = ax.plot([], [], lw=2)
+
+        
+    
+     
+ 
+    
 #calculate velocity deviation term
 # for one time step defined as Processdelay t_p in Adwin system, it is equivalent as int(t_p/c_p) clock cycles,
 # this is used to compensate time lag effect between sensor measurement acquisition and controller output generation 
@@ -745,7 +764,7 @@ def model_basedcontroller_simulator(data1,noise_std,tranning_samplenumber, sampl
                 if (controlleroutputval < -70000):
                      controlleroutputval = -70000
                 
-                predicted_distancelocal,desired_distancelocal,filtersignal,controlleroutputval, modelcoef_, modelintercept_,step_maximumcorrelation = model_based_controller(oldmodelcoef_, oldmodelintercept_,piston_mov_digital[0:j],controlcycle_time, denoise_mode,rawdistance_data,datapoints_velocity,distance_data[0:j], controlleroutput[0:j], j,control_startstep,datapoints,vibration_frequency, vibration_amplitude, phase_delay,samplingfreq)
+            #    predicted_distancelocal,desired_distancelocal,filtersignal,controlleroutputval, modelcoef_, modelintercept_,step_maximumcorrelation = model_based_controller(oldmodelcoef_, oldmodelintercept_,piston_mov_digital[0:j],controlcycle_time, denoise_mode,rawdistance_data,datapoints_velocity,distance_data[0:j], controlleroutput[0:j], j,control_startstep,datapoints,vibration_frequency, vibration_amplitude, phase_delay,samplingfreq)
                 #store fitted parameters from linear regression
               #  oldmodelcoef_, oldmodelintercept_  =  modelcoef_, modelintercept_ 
                 #plot controller output versus velocity data
@@ -865,11 +884,13 @@ if __name__ == '__main__':
     
     noise_std = 1  # noise standard deviation for distance data
     
-    # flag to choose if we want to plot distance data
-    plot_flag = 0
     
-    # flag to choose if we want to plot velocity data
-    plot_vel_flag = 0
+    plot_flag = 0   # flag to choose if we want to plot distance data
+    
+    
+    plot_vel_flag = 0  # flag to choose if we want to plot velocity data
+    
+    datanumber = 6000  # number of data rows we want to extract from raw CPT experiment dataset
     
     
     # Processdelay for each dataset (unit:s)
@@ -888,15 +909,41 @@ if __name__ == '__main__':
     timedelay3 = Processdelay3*datapoints3
     
     #obtain datasets and visualize based on our demand
-    data1 = CPTmain_data_processing(plot_flag,datapath1,newdataname)
-    data2 = CPTmain_data_processing(plot_flag,datapath2,newdataname)
+    data1 = CPTmain_data_processing(plot_flag,datapath1,newdataname,datanumber)
+    data2 = CPTmain_data_processing(plot_flag,datapath2,newdataname,datanumber)
    
-
+   # data3 = main_data_processing(plot_flag,datapath3,data_name)
+    
+    #transform digital distance measurement into analog real value
+   # real_distancedata = real_distancedatacalc(position_upperlimit, position_lowerlimit, data1['dist_MTS'])
+   # real_distancedata1 = real_distancedatacalc(position_upperlimit, position_lowerlimit, data2['dist_MTS'])
+    #real_distancedata2 = real_distancedatacalc(position_upperlimit, position_lowerlimit, data3['dist_MTS'])
+    
+    # obtain velocity profile
+   # veocity_profile1,veocity_profilestep1 = veocity_profile_calculation(timedelay1, datapoints1, data1['dist_MTS'])
+   # veocity_profile2,veocity_profilestep2 = veocity_profile_calculation(timedelay2, datapoints2, real_distancedata1)
+    #veocity_profile3,veocity_profilestep3 = veocity_profile_calculation(timedelay3, datapoints3, real_distancedata2)
+    
     
     #start the controller
     controlleroutput_array, distance_data = model_basedcontroller_simulator(data1,noise_std,tranning_samplenumber, sample_size,denoise_mode,simulation_timestep,datapoints_velocity,data2['DistanceRegOut_Digits'],data2['DistanceInduktiv_mm'], datapoints1,vibration_frequency, vibration_amplitude, phase_delay,samplingfreq)
     
+    #filtersignal = average_filter(averagesize,veocity_profilestep1)
    
+    #obatin velocity variation at each step
+    
+    #linear_regressioncalc(filtersignal, data1['Stellwert_Ventil'][1::], 224, len(veocity_profilestep1))
+    
+    #filtersignal2 = average_filter(averagesize,veocity_profilestep2)
+   # filtersignal_delta2 = velocity_variation(filtersignal2)
+   # linear_regressioncalc(filtersignal2, data2['Stellwert_Ventil'][1::], 224, len(veocity_profilestep2))
+    
+   
+    
+    #visualize measured distance profile
+    #distance_plot(data1['Proc2_counter'],real_distancedata)
+    
+
     
     #visualize velocity profile based on plot_vel_flag
   
