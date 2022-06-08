@@ -233,14 +233,6 @@ def desired_distance(vibration_frequency, vibration_amplitude, phase_delay, dist
         return desired_distance
 
 
-#generate video for linear regression result
-def generate_video(j,fitted_velarray,xarray,regression_datasize):  
-    # Enable interactive plot
-   # %matplotlib notebook
-    # First set up the figure, the axis, and the plot element we want to animate
-    fig = plt.figure()
-    ax = plt.axes(xlim=(0, 2), ylim=(-2, 2))
-    line, = ax.plot([], [], lw=2)
 
         
     
