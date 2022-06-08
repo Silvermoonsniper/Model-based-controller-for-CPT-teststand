@@ -832,15 +832,10 @@ if __name__ == '__main__':
 'SideAddtion_kPA','DistanceRegOut_Digits','ConeTipResistance','ConePorePressure_Digits','ValveIS_Digits','DistanceRegDelta_Digits','unnamed']
 
 
-   # datapath1 = r'C:\Users\zchen\Downloads\vibrotest_zhengyu20220511\15Hz_30mm\data (108).dat' # file path of raw measurement from VCPTU test
     
-    datapath1 =  r'C:\Users\zchen\Downloads\12_10_21_12_10_f2_5hzv5mms.csv'
-    datapath2 = r'C:\Users\zchen\Downloads\12_10_21_12_08_f5hzv10mms.csv'
-   # datapath2 = r'C:\Users\zchen\Downloads\vibrotest_zhengyu20220511\15Hz_5mm\data (102).dat'  # file path of raw measurement from VCPTU test
-    datapath3 = r'C:\Users\zchen\Downloads\vibrotest_zhengyu20220511\15Hz_10mm\data (103).dat' # file path of raw measurement from VCPTU test
-    #experiment datapath
+    datapath1 =  r'C:\Users\zchen\Downloads\12_10_21_12_10_f2_5hzv5mms.csv'  #experiment data path 1
     
-    expereimentdatapath2 = r'C:\Users\zchen\Downloads\vibrotest_zhengyu20220511\15Hz_5mm\220511_1120_vcptudata_7.vcptu' 
+    datapath2 = r'C:\Users\zchen\Downloads\12_10_21_12_08_f5hzv10mms.csv'  #experiment data path 2
     
     clockcycle_adwinProII = 1e-9  # time for one clock cycle of Adwin ProII system, T12 processor 1ns  
     
@@ -900,55 +895,20 @@ if __name__ == '__main__':
     
     #number of datapoints for model-based control step
     datapoints1 = 1
-    datapoints2 = 1
-    datapoints3 = 1
-    
-    #time delay 
-    timedelay1 = Processdelay1*datapoints1
-    timedelay2 = Processdelay2*datapoints2
-    timedelay3 = Processdelay3*datapoints3
+   
+
     
     #obtain datasets and visualize based on our demand
     data1 = CPTmain_data_processing(plot_flag,datapath1,newdataname,datanumber)
     data2 = CPTmain_data_processing(plot_flag,datapath2,newdataname,datanumber)
    
-   # data3 = main_data_processing(plot_flag,datapath3,data_name)
+  
     
-    #transform digital distance measurement into analog real value
-   # real_distancedata = real_distancedatacalc(position_upperlimit, position_lowerlimit, data1['dist_MTS'])
-   # real_distancedata1 = real_distancedatacalc(position_upperlimit, position_lowerlimit, data2['dist_MTS'])
-    #real_distancedata2 = real_distancedatacalc(position_upperlimit, position_lowerlimit, data3['dist_MTS'])
-    
-    # obtain velocity profile
-   # veocity_profile1,veocity_profilestep1 = veocity_profile_calculation(timedelay1, datapoints1, data1['dist_MTS'])
-   # veocity_profile2,veocity_profilestep2 = veocity_profile_calculation(timedelay2, datapoints2, real_distancedata1)
-    #veocity_profile3,veocity_profilestep3 = veocity_profile_calculation(timedelay3, datapoints3, real_distancedata2)
-    
-    
-    #start the controller
+    #start the controller, perform optimization and training on first dataset, and test optimal parameters on second dataset
     controlleroutput_array, distance_data = model_basedcontroller_simulator(data1,noise_std,tranning_samplenumber, sample_size,denoise_mode,simulation_timestep,datapoints_velocity,data2['DistanceRegOut_Digits'],data2['DistanceInduktiv_mm'], datapoints1,vibration_frequency, vibration_amplitude, phase_delay,samplingfreq)
     
-    #filtersignal = average_filter(averagesize,veocity_profilestep1)
-   
-    #obatin velocity variation at each step
-    
-    #linear_regressioncalc(filtersignal, data1['Stellwert_Ventil'][1::], 224, len(veocity_profilestep1))
-    
-    #filtersignal2 = average_filter(averagesize,veocity_profilestep2)
-   # filtersignal_delta2 = velocity_variation(filtersignal2)
-   # linear_regressioncalc(filtersignal2, data2['Stellwert_Ventil'][1::], 224, len(veocity_profilestep2))
-    
-   
-    
-    #visualize measured distance profile
-    #distance_plot(data1['Proc2_counter'],real_distancedata)
-    
-
-    
-    #visualize velocity profile based on plot_vel_flag
   
-    if plot_vel_flag == 1:
-        plot_function(data1['Proc2_counter'][1:len(veocity_profilestep2)],data1['dist_MTS'][1::], 'Proc2_counter', 'Velocity')
-        
+   
+    
      
     
