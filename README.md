@@ -4,6 +4,10 @@ A novel proposed model-based controller mechanism is used to control penetration
 This is a testing framework which can be applied to controller model and real CPT experiment data.
 
 Simulation Example:
+Simulation setup:
+Vibration frequency: 10 Hz
+Vibration amplitude: 10 mm
+     
 
 <p float="center">
   <img src="https://user-images.githubusercontent.com/89796179/283397591-35687275-8d3b-4b0f-9480-5f1565b98864.png" width="800" />
