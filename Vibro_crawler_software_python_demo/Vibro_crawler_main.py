@@ -42,9 +42,11 @@ if   __name__ == "__main__":
 
       # read testing data
       
-      datapath =  r'C:\VibroCPT\Vibro_crawler_software_python_demo\field_test_2023_07_25\1000_p_const_20hz_6mm_control.dat.fast'  
+      datapath =  r'field_test_2023_07_25\1000_p_const_20hz_6mm_control.dat.fast'  
+      
+      simulation_step = 3000
      
-      raw_measurementdata = pd.read_table(datapath,skiprows = 5 , delimiter='\t',encoding='latin-1',engine='python')
+      raw_measurementdata = pd.read_table(datapath,skiprows = 5 , nrows = simulation_step, delimiter='\t',encoding='latin-1',engine='python')
       
       # remove spikes in the data
       raw_measurementdata = raw_measurementdata[abs(raw_measurementdata.Stellwert) < 65536]
@@ -256,6 +258,9 @@ if   __name__ == "__main__":
       vel_deviation = 0
       
       dist_err = 0
+      
+      start,end = 230, 2200
+      
       # rem if time delay obtained by correlation appears wrong value, correct with confident value 
       # rem check if cone is connected, if so, step is double. 
       # if (synced_ = 0):
@@ -524,30 +529,20 @@ if   __name__ == "__main__":
            actual_vel_array.append(vel_local)
       
       ##################################
+      # plot function for control performance
       plot_functions.control_performance_Plot(measure_dist_array,desired_dist_array,predict_dist_array,controloutput_model_array)
      
-        
-      start,end = 230, 14200
-      plt.plot(m_array[start:end])
-      plt.plot(b_array[start:end])
+      # plot function for model accuracy
+      plot_functions.fitted_velocity_plot(measure_dist_array,start,end,actual_vel_array, fitted_velocity_array)
       
-     
-      plt.subplot(311)
-      
-      plt.plot( actual_vel_array[start:end])
-      
-      plt.plot(fitted_velocity_array[start:end])
-      
-      
-      
-      ################################
-      start,end = 230, 1200
-      time_delay = 202
-      plt.plot(controloutput_model_array[start+ time_delay:end +time_delay],actual_vel_array[start:end])
-      start,end = 1230, 2200
-      plt.plot(controloutput_model_array[start:end],actual_vel_array[start:end])
-      start,end = 2230, 7200
-      plt.plot(controloutput_model_array[start:end],actual_vel_array[start:end])
+      # ################################
+      # start,end = 230, 1200
+      # time_delay = 205
+      # plt.plot(controloutput_model_array[start+ time_delay:end +time_delay],actual_vel_array[start:end])
+      # start,end = 1230, 2200
+      # plt.plot(controloutput_model_array[start:end],actual_vel_array[start:end])
+      # start,end = 2230, 7200
+      # plt.plot(controloutput_model_array[start:end],actual_vel_array[start:end])
       
  
       
