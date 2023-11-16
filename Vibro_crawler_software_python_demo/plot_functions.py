@@ -61,3 +61,22 @@ def  control_performance_Plot(measure_dist_array,desired_dist_array,predict_dist
     plt.legend(['predicted - desired ', 'shifted desire - measured', 'shifted measured  -  desire'])
     
     plt.tight_layout()
+    
+def fitted_velocity_plot(measure_dist_array,start,end,actual_vel_array, fitted_velocity_array):
+
+    plt.figure (figsize = [12,10])
+    plt.subplot(211)
+    
+    timedelay = 205
+    time = (1/5000)*np.arange(len(measure_dist_array))
+    plt.plot( time[start:end], actual_vel_array[start:end])
+    plt.plot(time[start-timedelay:end-timedelay], fitted_velocity_array[start:end])
+    plt.plot(time[start:end], fitted_velocity_array[start:end])
+    plt.xlabel('time (s)')
+    plt.ylabel('piston velocity (mm/step)')
+    plt.legend(['Real velocity', 'fitted velocity', 'shifted fitted velocity' ,'shifted desire', 'shifted predicted'])
+    plt.title('The comparison between actual velocity and fitted velocity from model')
+    plt.subplot(212)
+    plt.plot(time[start:end], np.array(actual_vel_array)[start:end] - np.array(fitted_velocity_array)[start +timedelay:end+timedelay])
+    plt.xlabel('time (s)')
+    plt.ylabel('error (mm/step)')    
